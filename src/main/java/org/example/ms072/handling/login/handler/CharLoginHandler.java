@@ -1,0 +1,719 @@
+package org.example.ms072.handling.login.handler;
+
+import  org.example.ms072.client.LoginCrypto;
+import  org.example.ms072.client.MapleCharacter;
+import  org.example.ms072.client.MapleCharacterUtil;
+import  org.example.ms072.client.MapleClient;
+import  org.example.ms072.client.PartTimeJob;
+import  org.example.ms072.client.Skill;
+import  org.example.ms072.client.SkillEntry;
+import  org.example.ms072.client.SkillFactory;
+import  org.example.ms072.client.inventory.Item;
+import  org.example.ms072.client.inventory.MapleInventory;
+import  org.example.ms072.client.inventory.MapleInventoryType;
+import  org.example.ms072.constants.GameConstants;
+import  org.example.ms072.constants.JobConstants;
+import  org.example.ms072.constants.ServerConfig;
+import  org.example.ms072.constants.ServerConstants;
+import  org.example.ms072.constants.WorldConstants;
+import  org.example.ms072.constants.WorldConstants.TespiaWorldOption;
+import  org.example.ms072.constants.WorldConstants.WorldOption;
+import  org.example.ms072.database.DatabaseConnection;
+import org.example.ms072.handling.cashshop.CashShopServer;
+import org.example.ms072.handling.channel.ChannelServer;
+import org.example.ms072.handling.login.LoginInformationProvider;
+import org.example.ms072.handling.login.LoginInformationProvider.JobType;
+import org.example.ms072.handling.login.LoginServer;
+import org.example.ms072.handling.login.LoginWorker;
+import org.example.ms072.handling.world.World;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import  org.example.ms072.server.MapleItemInformationProvider;
+import  org.example.ms072.server.quest.MapleQuest;
+import  org.example.ms072.tools.FileoutputUtil;
+import  org.example.ms072.tools.StringUtil;
+import  org.example.ms072.tools.data.LittleEndianAccessor;
+import  org.example.ms072.tools.packet.CField;
+import  org.example.ms072.tools.packet.CWvsContext;
+import  org.example.ms072.tools.packet.LoginPacket;
+import  org.example.ms072.tools.packet.PacketHelper;
+
+public class CharLoginHandler {
+
+    private static boolean loginFailCount(final MapleClient c) {
+        c.loginAttempt++;
+        return c.loginAttempt > 4;
+    }
+
+    public static void handleAuthRequest(final LittleEndianAccessor slea, final MapleClient c) {
+        //System.out.println("Sending response to client.");
+        int request = slea.readInt();
+        int response;
+
+        response = ((request >> 5) << 5) + (((((request & 0x1F) >> 3) ^ 2) << 3) + (7 - (request & 7)));
+        response |= ((request >> 7) << 7);
+        response -= 1; //-1 again on v143
+
+        c.sendPacket(LoginPacket.sendAuthResponse(response));
+    }
+
+    public static void CheckAccount(final LittleEndianAccessor slea, final MapleClient c) {
+        String accountName = slea.readMapleAsciiString();
+        c.sendPacket(LoginPacket.CheckAccount(accountName, c.isAccountNameUsed(accountName)));
+    }
+
+    public static void RegisterAccount(LittleEndianAccessor slea, MapleClient c) {
+        /*
+         0C 
+         07 00 61 31 32 33 31 32 33 用户名
+         07 00 61 31 32 33 31 32 33 密码
+         05 00 77 75 62 69 6E 姓名
+         0A 00 31 39 39 35 2F 30 36 2F 30 37 生日
+         00 00 电话号码
+         09 00 31 31 31 31 31 31 31 31 31 问题1
+         09 00 31 31 31 31 31 31 31 31 31 答案1
+         09 00 31 31 31 31 31 31 31 31 31 问题2
+         09 00 31 31 31 31 31 31 31 31 31 答案2
+         0F 00 36 35 33 34 33 33 37 31 40 71 71 2E 63 6F 6D 邮箱
+         12 00 33 35 30 35 38 32 31 39 39 35 30 36 30 37 32 30 35 36 身份证
+         00 00 手机号码
+         00 00 
+         00 00 
+         00 00
+         *
+         */
+        String accountName = slea.readMapleAsciiString();
+        String password = slea.readMapleAsciiString();
+        String realName = slea.readMapleAsciiString();
+        String birthDay = slea.readMapleAsciiString();
+        String homeNo = slea.readMapleAsciiString();
+        String questionOne = slea.readMapleAsciiString();
+        String answerOne = slea.readMapleAsciiString();
+        String questionTwo = slea.readMapleAsciiString();
+        String answerTwo = slea.readMapleAsciiString();
+        String email = slea.readMapleAsciiString();
+        String IDCard = slea.readMapleAsciiString();
+        String telNo = slea.readMapleAsciiString();
+        // byte gender = slea.readByte();
+        // int nxCredit = 0;
+
+        boolean result = false;
+        if (!c.isAccountNameUsed(accountName)) {
+            try (Connection con = DatabaseConnection.getInstance().getDataSource().getConnection()) {
+                //  try (PreparedStatement ps = con.prepareStatement("INSERT INTO accounts (`name`, password, birthday,email,gender) VALUES (?, ?, ?, ?, ?)")) {
+                try (PreparedStatement ps = con.prepareStatement("INSERT INTO accounts (`name`, password, birthday,email) VALUES (?, ?, ?, ?)")) {
+
+                    ps.setString(1, accountName);
+                    ps.setString(2, LoginCrypto.hexSha1(password));
+                    ps.setString(3, birthDay);
+                    ps.setString(4, email);
+                    //ps.setByte(5, gender);
+                    ps.executeUpdate();
+                    ps.close();
+                    result = true;
+                }
+            } catch (SQLException ex) {
+                System.err.println("RegisterAccount" + ex);
+                FileoutputUtil.outputFileError("logs/数据库异常.txt", ex);
+            }
+        }
+        c.sendPacket(LoginPacket.RegisterAccount(result));
+    }
+
+    public static void setGender(final LittleEndianAccessor slea, final MapleClient c) {
+        byte gender = slea.readByte();
+        String username = slea.readMapleAsciiString();
+        if (c.getAccountName().equals(username)) {
+            c.setGender(gender);
+            c.sendPacket(LoginPacket.genderChanged(c));
+            c.sendPacket(CWvsContext.broadcastMsg(1, "设置性别成功请重新登录。"));
+        } else {
+            c.getSession().close();
+            FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+        }
+    }
+
+    public static void login(final LittleEndianAccessor slea, final MapleClient c) {
+        String login = slea.readMapleAsciiString();
+        String pwd = slea.readMapleAsciiString();
+        int[] bytes = new int[6];
+        for (int i = 0; i < bytes.length; i++) {
+            bytes[i] = slea.readByteAsInt();
+        }
+        StringBuilder sps = new StringBuilder();
+        for (int aByte : bytes) {
+            sps.append(StringUtil.getLeftPaddedStr(Integer.toHexString(aByte).toUpperCase(), '0', 2));
+            sps.append("-");
+        }
+        String macData = sps.toString();
+        macData = macData.substring(0, macData.length() - 1);
+
+        c.setMac(macData);
+        final boolean ipBan = c.hasBannedIP();
+        final boolean macBan = c.hasBannedMac();
+        boolean banned = (ipBan) || (macBan);
+       // if (ServerConstants.getAutoReg()) {
+            if (ServerConfig.普通注册) {
+                if (AutoRegister.autoRegister && !AutoRegister.getAccountExists(login) && (!banned)) {
+                    if (pwd.equalsIgnoreCase("disconnect") || pwd.equalsIgnoreCase("fixme") || pwd.equalsIgnoreCase("admin") || pwd.equalsIgnoreCase("000000")) {
+                        c.sendPacket(CWvsContext.serverNotice(1, "你不可以使用这个作为密码."));
+                        c.sendPacket(LoginPacket.getLoginFailed(1)); //Shows no message, used for unstuck the login button
+                        return;
+                    }
+                    AutoRegister.createAccount(login, pwd, c.getSession().remoteAddress().toString(), macData);
+                    if (AutoRegister.success && AutoRegister.mac) {
+                        c.sendPacket(CWvsContext.serverNotice(1, "账号创建成功,请重新登录!"));
+                    } else if (!AutoRegister.mac) {
+                        c.sendPacket(CWvsContext.serverNotice(1, "账号创建失败，你已经注册过账号，一个机器码只能注册一个账号"));
+                    }
+                    AutoRegister.success = true;
+                    AutoRegister.mac = true;
+                    c.sendPacket(LoginPacket.getLoginFailed(1)); //Shows no message, used for unstuck the login button
+                    return;
+                }
+            }
+     //   }
+        int loginok = c.login(login, pwd, ipBan || macBan);
+        final Calendar tempbannedTill = c.getTempBanCalendar();
+        if (loginok == 0 && (ipBan || macBan) && !c.isGm()) {
+            loginok = 3;
+            if (macBan) {
+                // this is only an ipban o.O" - maybe we should refactor this a bit so it's more readable
+                MapleCharacter.ban(c.getSession().remoteAddress().toString().split(":")[0], "Enforcing account ban, account " + login, false, 4, false);
+            }
+        }
+      //  if (ServerConstants.getAutoReg()) {
+            if (ServerConfig.官方式注册) {
+                if (loginok == 5) {
+                    //账号不存在
+                    c.sendPacket(LoginPacket.RegisterInfo(true));
+                    loginok = 1;
+                }
+            }
+     //   }
+        if (loginok != 0) {
+            if (!loginFailCount(c)) {
+                c.clearInformation();
+                c.sendPacket(LoginPacket.getLoginFailed(loginok));
+            } else {
+                c.getSession().close();
+                FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+            }
+        } else if (tempbannedTill.getTimeInMillis() != 0) {
+            if (!loginFailCount(c)) {
+                c.clearInformation();
+                c.sendPacket(LoginPacket.getTempBan(PacketHelper.getTime(tempbannedTill.getTimeInMillis()), c.getBanReason()));
+            } else {
+                c.getSession().close();
+                FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+            }
+        } else if (c.getGender() == 10) {
+            c.sendPacket(LoginPacket.genderNeeded(c));
+        } else {
+            FileoutputUtil.logToFile("Logs/玩家记录.txt", "账号: " + login + " 密码: " + pwd /*+ " MAC : " + macData*/ + " IP: " + c.getSession().remoteAddress().toString() + "\r\n");
+            c.updateMacs();
+            c.loginAttempt = 0;
+            LoginWorker.registerClient(c);
+        }
+    }
+
+    public static void ServerListRequest(final MapleClient c) {
+        if (ServerConstants.TESPIA) {
+            for (TespiaWorldOption tespiaservers : TespiaWorldOption.values()) {
+                if (TespiaWorldOption.getById(tespiaservers.getWorld()).show() && TespiaWorldOption.getById(tespiaservers.getWorld()) != null) {
+                    c.sendPacket(LoginPacket.getServerList(Integer.parseInt(tespiaservers.getWorld().replace("t", "")), LoginServer.getLoad()));
+                }
+            }
+        } else {
+            for (WorldOption servers : WorldOption.values()) {
+                if (WorldOption.getById(servers.getWorld()).show() && servers != null) {
+                    c.sendPacket(LoginPacket.getServerList(servers.getWorld(), LoginServer.getLoad()));
+                }
+            }
+        }
+        c.sendPacket(LoginPacket.getEndOfServerList());
+        boolean hasCharacters = false;
+        for (int world = 0; world < WorldOption.values().length; world++) {
+            final List<MapleCharacter> chars = c.loadCharacters(world);
+            if (chars != null) {
+                hasCharacters = true;
+                break;
+            }
+        }
+        if (ServerConstants.TESPIA) {
+            for (TespiaWorldOption value : TespiaWorldOption.values()) {
+                String world = value.getWorld();
+            }
+        }
+        if (!hasCharacters) {
+
+        }
+        if (WorldOption.recommended >= 0) {
+
+        }
+    }
+
+    public static void ServerStatusRequest(final MapleClient c) {
+        // 0 = Select world normally
+        // 1 = "Since there are many users, you may encounter some..."
+        // 2 = "The concurrent users in this world have reached the max"
+        final int numPlayer = LoginServer.getUsersOn();
+        final int userLimit = LoginServer.getUserLimit();
+        if (numPlayer >= userLimit) {
+            c.sendPacket(LoginPacket.getServerStatus(2));
+        } else if (numPlayer * 2 >= userLimit) {
+            c.sendPacket(LoginPacket.getServerStatus(1));
+        } else {
+            c.sendPacket(LoginPacket.getServerStatus(0));
+        }
+    }
+
+    public static void CharlistRequest(final LittleEndianAccessor slea, final MapleClient c) {
+        if (!c.isLoggedIn()) {
+            c.getSession().close();
+            FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+            return;
+        }
+        final int server = slea.readByte();
+        final int channel = slea.readByte() + 1;
+        if (!World.isChannelAvailable(channel, server) || !WorldOption.isExists(server)) {
+            c.sendPacket(LoginPacket.getLoginFailed(10)); //cannot process so many
+            return;
+        }
+
+        if (!WorldOption.getById(server).isAvailable() && !(c.isGm() && server == WorldConstants.gmserver)) {
+            c.sendPacket(CWvsContext.broadcastMsg(1, "目前世界 " + WorldConstants.getNameById(server) + " 不开放. \r\n请选择其他世界."));
+            c.sendPacket(LoginPacket.getLoginFailed(1)); //Shows no message, but it is used to unstuck
+            return;
+        }
+
+        //System.out.println("Client " + c.getSession().remoteAddress().toString().split(":")[0] + " is connecting to server " + server + " channel " + channel + "");
+        final List<MapleCharacter> chars = c.loadCharacters(server);
+        if (chars != null && ChannelServer.getInstance(channel) != null) {
+            c.setWorld(server);
+            c.setChannel(channel);
+            c.sendPacket(LoginPacket.getCharList(c.getSecondPassword(), chars, c.getCharacterSlots()));
+        } else {
+            c.getSession().close();
+            FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+        }
+    }
+
+    public static void updateCCards(final LittleEndianAccessor slea, final MapleClient c) {
+        if (slea.available() != 36 || !c.isLoggedIn()) {
+            c.getSession().close();
+            FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+            return;
+        }
+        final Map<Integer, Integer> cids = new LinkedHashMap<>();
+        for (int i = 1; i <= 6; i++) { // 6 chars
+            final int charId = slea.readInt();
+            if ((!c.login_Auth(charId) && charId != 0) || ChannelServer.getInstance(c.getChannel()) == null || !WorldOption.isExists(c.getWorld())) {
+                c.getSession().close();
+                FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+                return;
+            }
+            cids.put(i, charId);
+        }
+        c.updateCharacterCards(cids);
+    }
+
+    public static void CheckCharName(final String name, final MapleClient c) {
+        LoginInformationProvider li = LoginInformationProvider.getInstance();
+        boolean nameUsed = true;
+        if (MapleCharacterUtil.canCreateChar(name, c.isGm())) {
+            nameUsed = false;
+        }
+        if (li.isForbiddenName(name) && !c.isGm()) {
+            nameUsed = false;
+        }
+        c.sendPacket(LoginPacket.charNameResponse(name, nameUsed));
+    }
+
+    public static void CreateChar(final LittleEndianAccessor slea, final MapleClient c) {
+        String name;
+        byte gender, skin, unk;
+        short subcategory;
+        int face, hair, hairColor = -1, hat = -1, top, bottom = -1, shoes, weapon, cape = -1, faceMark = -1, ears = -1, tail = -1, shield = -1;
+        JobType job;
+        name = slea.readMapleAsciiString();
+        if (!MapleCharacterUtil.canCreateChar(name, false)) {
+            System.out.println("char name hack: " + name);
+            return;
+        }
+        job = JobType.getByType(1);
+        if (job == null) {
+            System.out.println("New job type found: " + 1);
+            return;
+        }
+        for (JobConstants.LoginJob j : JobConstants.LoginJob.values()) {
+            if (j.getJobType() == 1) {
+                if (j.getFlag() != JobConstants.LoginJob.JobFlag.ENABLED.getFlag()) {
+                    System.out.println("job was tried to be created while not enabled");
+                    return;
+                }
+            }
+        }
+
+        gender = c.getGender();
+        face = slea.readInt();
+        hair = slea.readInt();
+        top = slea.readInt();
+        bottom = slea.readInt();
+        shoes = slea.readInt();
+        weapon = slea.readInt();
+
+        MapleCharacter newchar = MapleCharacter.getDefault(c, job);
+        newchar.setWorld((byte) c.getWorld());
+        newchar.setFace(face);
+        newchar.setHair(hair);
+        newchar.setGender(gender);
+        newchar.setName(name);
+
+        if (!CheckCreate(gender, face, hair, weapon, top, bottom, shoes)) {
+            System.out.println("无法创建角色: " + gender + " | " + 0 + " | " + job.type + " | ");
+            return;
+        }
+
+        final MapleItemInformationProvider li = MapleItemInformationProvider.getInstance();
+        final MapleInventory equip = newchar.getInventory(MapleInventoryType.EQUIPPED);
+        Item item;
+        //-1 Hat | -2 Face | -3 Eye acc | -4 Ear acc | -5 Topwear 
+        //-6 Bottom | -7 Shoes | -9 Cape | -10 Shield | -11 Weapon
+        //todo check zero's beta weapon slot
+        int[][] equips = new int[][]{{hat, -1}, {top, -5}, {bottom, -6}, {cape, -9}, {shoes, -7}, {weapon, -11}, {shield, -10}};
+        for (int[] i : equips) {
+            if (i[0] > 0) {
+                item = li.getEquipById(i[0]);
+                item.setPosition((byte) i[1]);
+                item.setGMLog("Character Creation");
+                equip.addFromDB(item);
+            }
+        }
+        MapleItemInformationProvider ii = MapleItemInformationProvider.getInstance();
+
+        Item gift = ii.getEquipById(1052170);
+        gift.setExpiration(System.currentTimeMillis() + 1 * 24 * 60 * 60 * 1000);
+        newchar.getInventory(MapleInventoryType.EQUIP).addItem(gift, 1);
+
+        Item gift2 = ii.getEquipById(1002824);
+        gift2.setExpiration(System.currentTimeMillis() + 1 * 24 * 60 * 60 * 1000);
+        newchar.getInventory(MapleInventoryType.EQUIP).addItem(gift2, 2);
+
+        Item gift3 = new Item(5030001, (short) 0, (short) 1, (byte) 0);
+        newchar.getInventory(MapleInventoryType.CASH).addItem(gift3, 1);
+
+        newchar.getInventory(MapleInventoryType.USE).addItem(new Item(2000013, (byte) 0, (short) 200, (byte) 0), 1);
+        newchar.getInventory(MapleInventoryType.USE).addItem(new Item(2000014, (byte) 0, (short) 200, (byte) 0), 2);
+        newchar.getInventory(MapleInventoryType.ETC).addItem(new Item(4161001, (byte) 0, (short) 1, (byte) 0), 1);
+
+        if (MapleCharacterUtil.canCreateChar(name, c.isGm()) && (!LoginInformationProvider.getInstance().isForbiddenName(name) || c.isGm()) && (c.isGm() || c.canMakeCharacter(c.getWorld()))) {
+            MapleCharacter.saveNewCharToDB(newchar, job, (short) 0);
+            c.sendPacket(LoginPacket.addNewCharEntry(newchar, true));
+            c.createdChar(newchar.getId());
+        } else {
+            c.sendPacket(LoginPacket.addNewCharEntry(newchar, false));
+        }
+    }
+
+    public static void CreateUltimate(final LittleEndianAccessor slea, final MapleClient c) {
+        if (!c.getPlayer().isGM() && (!c.isLoggedIn() || c.getPlayer() == null || c.getPlayer().getLevel() < 120 || c.getPlayer().getMapId() != 130000000 || c.getPlayer().getQuestStatus(20734) != 0 || c.getPlayer().getQuestStatus(20616) != 2 || !GameConstants.isKOC(c.getPlayer().getJob()) || !c.canMakeCharacter(c.getPlayer().getWorld()))) {
+            c.sendPacket(CField.createUltimate(2));
+            //Character slots are full. Please purchase another slot from the Cash Shop.
+            return;
+        }
+        //System.out.println(slea.toString());
+        final String name = slea.readMapleAsciiString();
+        final int job = slea.readInt(); //job ID
+
+        final int face = slea.readInt();
+        final int hair = slea.readInt();
+
+        //No idea what are these used for:
+        final int hat = slea.readInt();
+        final int top = slea.readInt();
+        final int glove = slea.readInt();
+        final int shoes = slea.readInt();
+        final int weapon = slea.readInt();
+
+        final byte gender = c.getPlayer().getGender();
+
+//        JobType errorCheck = JobType.Adventurer;
+//        if (!LoginInformationProvider.getInstance().isEligibleItem(gender, 0, errorCheck.type, face)) {
+//            System.out.println("無法創立角色: " + gender + " | " + index + " | " + job.type + " | " + i);
+//            c.sendPacket(CWvsContext.enableActions());
+//            return;
+//        }
+        JobType jobType = JobType.UltimateAdventurer;
+
+        MapleCharacter newchar = MapleCharacter.getDefault(c, jobType);
+        newchar.setJob(job);
+        newchar.setWorld(c.getPlayer().getWorld());
+        newchar.setFace(face);
+        newchar.setHair(hair);
+        newchar.setGender(gender);
+        newchar.setName(name);
+        newchar.setSkinColor((byte) 3); //troll
+        newchar.setLevel((short) 50);
+        newchar.getStat().str = (short) 4;
+        newchar.getStat().dex = (short) 4;
+        newchar.getStat().int_ = (short) 4;
+        newchar.getStat().luk = (short) 4;
+        newchar.setRemainingAp((short) 254); //49*5 + 25 - 16
+        newchar.setRemainingSp(job / 100 == 2 ? 128 : 122); //2 from job advancements. 120 from leveling. (mages get +6)
+        newchar.getStat().maxhp += 150; //Beginner 10 levels
+        newchar.getStat().maxmp += 125;
+        switch (job) {
+            case 110:
+            case 120:
+            case 130:
+                newchar.getStat().maxhp += 600; //Job Advancement
+                newchar.getStat().maxhp += 2000; //Levelup 40 times
+                newchar.getStat().maxmp += 200;
+                break;
+            case 210:
+            case 220:
+            case 230:
+                newchar.getStat().maxmp += 600;
+                newchar.getStat().maxhp += 500; //Levelup 40 times
+                newchar.getStat().maxmp += 2000;
+                break;
+            case 310:
+            case 320:
+            case 410:
+            case 420:
+            case 520:
+                newchar.getStat().maxhp += 500;
+                newchar.getStat().maxmp += 250;
+                newchar.getStat().maxhp += 900; //Levelup 40 times
+                newchar.getStat().maxmp += 600;
+                break;
+            case 510:
+                newchar.getStat().maxhp += 500;
+                newchar.getStat().maxmp += 250;
+                newchar.getStat().maxhp += 450; //Levelup 20 times
+                newchar.getStat().maxmp += 300;
+                newchar.getStat().maxhp += 800; //Levelup 20 times
+                newchar.getStat().maxmp += 400;
+                break;
+            default:
+                return;
+        }
+
+        final Map<Skill, SkillEntry> ss = new HashMap<>();
+        ss.put(SkillFactory.getSkill(1074 + (job / 100)), new SkillEntry((byte) 5, (byte) 5, -1));
+        ss.put(SkillFactory.getSkill(80), new SkillEntry((byte) 1, (byte) 1, -1));
+        newchar.changeSkillLevel_Skip(ss, false);
+        final MapleItemInformationProvider li = MapleItemInformationProvider.getInstance();
+
+        //TODO: Make this GMS - Like
+        int[] items = new int[]{1142257, hat, top, shoes, glove, weapon, hat + 1, top + 1, shoes + 1, glove + 1, weapon + 1}; //brilliant = fine+1
+        for (byte i = 0; i < items.length; i++) {
+            Item item = li.getEquipById(items[i]);
+            item.setPosition((byte) (i + 1));
+            newchar.getInventory(MapleInventoryType.EQUIP).addFromDB(item);
+        }
+
+        newchar.getInventory(MapleInventoryType.USE).addItem(new Item(2000004, (byte) 0, (short) 200, (byte) 0));
+        if (MapleCharacterUtil.canCreateChar(name, c.isGm()) && (!LoginInformationProvider.getInstance().isForbiddenName(name) || c.isGm())) {
+            MapleCharacter.saveNewCharToDB(newchar, jobType, (short) 0);
+            MapleQuest.getInstance(20734).forceComplete(c.getPlayer(), 1101000);
+            c.sendPacket(CField.createUltimate(0));
+        } else if (!LoginInformationProvider.getInstance().isForbiddenName(name) || c.isGm()) {
+            c.sendPacket(CField.createUltimate(3)); //"You cannot use this name."
+        } else {
+            c.sendPacket(CField.createUltimate(1));
+        }
+    }
+
+    public static void DeleteChar(final LittleEndianAccessor slea, final MapleClient c) {
+        String Secondpw_Client = GameConstants.GMS ? slea.readMapleAsciiString() : null;
+        if (Secondpw_Client == null) {
+            if (slea.readByte() > 0) { // Specific if user have second password or not
+                Secondpw_Client = slea.readMapleAsciiString();
+            }
+            slea.readMapleAsciiString();
+        }
+
+        final int Character_ID = slea.readInt();
+
+        if (!c.login_Auth(Character_ID) || !c.isLoggedIn() || loginFailCount(c)) {
+            c.getSession().close();
+            FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+            return; // Attempting to delete other character
+        }
+        byte state = 0;
+
+        if (c.getSecondPassword() != null) { // On the server, there's a second password
+            if (Secondpw_Client == null) { // Client's hacking
+                c.getSession().close();
+                FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+                return;
+            } else if (!c.CheckSecondPassword(Secondpw_Client)) { // Wrong Password
+                state = 20;
+            }
+        }
+
+        if (state == 0) {
+            state = (byte) c.deleteCharacter(Character_ID);
+        }
+        c.sendPacket(LoginPacket.deleteCharResponse(Character_ID, state));
+    }
+
+    public static void Character_WithoutSecondPassword(final LittleEndianAccessor slea, final MapleClient c, final boolean haspic, final boolean view) {
+        if (LoginServer.CheckSelectChar(c.getAccID(), System.currentTimeMillis())) {
+            final int charId = slea.readInt();
+            /*if (view) {
+             c.setChannel(1);
+             c.setWorld(slea.readInt());
+             }*/
+
+            // 快速登入发二次包 第二次判断到这 由于 !c.isLoggedIn() 及 !c.login_Auth(charId) 而被踢下线
+            if (!c.isLoggedIn() || loginFailCount(c) || !c.login_Auth(charId) || ChannelServer.getInstance(c.getChannel()) == null || !WorldOption.isExists(c.getWorld())) {
+                c.getSession().close();
+                FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+                return;
+            }
+            if (c.getIdleTask() != null) {
+                c.getIdleTask().cancel(true);
+            }
+            final String s = c.getSessionIPAddress();
+            LoginServer.putLoginAuth(charId, s.substring(s.indexOf('/') + 1, s.length()), c.getTempIP(), c.getChannel());
+            c.updateLoginState(MapleClient.LOGIN_SERVER_TRANSITION, s);
+            c.sendPacket(CField.getServerIP(c, Integer.parseInt(ChannelServer.getInstance(c.getChannel()).getIP().split(":")[1]), charId));
+        }
+    }
+
+    public static void Character_WithSecondPassword(final LittleEndianAccessor slea, final MapleClient c, final boolean view) {
+        final String password = slea.readMapleAsciiString();
+        final int charId = slea.readInt();
+        if (view) {
+            c.setChannel(1);
+            c.setWorld(slea.readInt());
+        }
+        if (!c.isLoggedIn() || loginFailCount(c) || c.getSecondPassword() == null || !c.login_Auth(charId) || ChannelServer.getInstance(c.getChannel()) == null || !WorldOption.isExists(c.getWorld())) {
+            c.getSession().close();
+            FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+            return;
+        }
+        c.updateMacs(slea.readMapleAsciiString());
+
+        if (c.CheckSecondPassword(password) && password.length() >= 6 && password.length() <= 16 || c.isGm()) {
+
+            if (c.getIdleTask() != null) {
+                c.getIdleTask().cancel(true);
+            }
+
+            final String s = c.getSessionIPAddress();
+            LoginServer.putLoginAuth(charId, s.substring(s.indexOf('/') + 1, s.length()), c.getTempIP(), c.getChannel());
+            c.updateLoginState(MapleClient.LOGIN_SERVER_TRANSITION, s);
+            c.sendPacket(CField.getServerIP(c, Integer.parseInt(ChannelServer.getInstance(c.getChannel()).getIP().split(":")[1]), charId));
+        } else {
+            c.sendPacket(LoginPacket.secondPwError((byte) 0x14));
+        }
+    }
+
+    public static void partTimeJob(final LittleEndianAccessor slea, final MapleClient c) {
+        System.out.println("[Part Time Job] data: " + slea);
+        byte mode = slea.readByte(); //1 = start 2 = end
+        int cid = slea.readInt(); //character id
+        byte job = slea.readByte(); //part time job
+        if (mode == 0) {
+            LoginPacket.partTimeJob(cid, (byte) 0, System.currentTimeMillis());
+        } else if (mode == 1) {
+            LoginPacket.partTimeJob(cid, job, System.currentTimeMillis());
+        }
+    }
+
+    public static void PartJob(LittleEndianAccessor slea, MapleClient c) {
+        if (c.getPlayer() != null || !c.isLoggedIn()) {
+            c.getSession().close();
+            FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+            return;
+        }
+        final byte mode = slea.readByte();
+        final int cid = slea.readInt();
+        if (mode == 1) {
+            final PartTimeJob partTime = MapleCharacter.getPartTime(cid);
+            final byte job = slea.readByte();
+            if (/*chr.getLevel() < 30 || */job < 0 || job > 5 || partTime.getReward() > 0
+                    || (partTime.getJob() > 0 && partTime.getJob() <= 5)) {
+                c.getSession().close();
+                FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+                return;
+            }
+            partTime.setTime(System.currentTimeMillis());
+            partTime.setJob(job);
+            c.sendPacket(LoginPacket.updatePartTimeJob(partTime));
+            MapleCharacter.removePartTime(cid);
+            MapleCharacter.addPartTime(partTime);
+        } else if (mode == 2) {
+            final PartTimeJob partTime = MapleCharacter.getPartTime(cid);
+            if (/*chr.getLevel() < 30 || */partTime.getReward() > 0
+                    || partTime.getJob() < 0 || partTime.getJob() > 5) {
+                c.getSession().close();
+                FileoutputUtil.logToFile(FileoutputUtil.DC_Log, "\r\n服务器主动断开用户端连接，调用位置: " + new Throwable().getStackTrace()[0]);
+
+                return;
+            }
+            final long distance = (System.currentTimeMillis() - partTime.getTime()) / (60 * 60 * 1000L);
+            if (distance > 1) {
+                partTime.setReward((int) (((partTime.getJob() + 1) * 1000L) + distance));
+            } else {
+                partTime.setJob((byte) 0);
+                partTime.setReward(0);
+            }
+            partTime.setTime(System.currentTimeMillis());
+            MapleCharacter.removePartTime(cid);
+            MapleCharacter.addPartTime(partTime);
+            c.sendPacket(LoginPacket.updatePartTimeJob(partTime));
+        }
+    }
+
+    public static boolean CheckCreate(byte gender, int face, int hair, int weapon, int top, int bottom, int shoes) {
+        boolean pass = true;
+        if (gender == 0) {
+            if (face != 20100 && face != 20401 && face != 20402) {
+                pass = false;
+            } else if (hair != 30000 && hair != 30027 && hair != 30030) {
+                pass = false;
+            } else if (top != 1040002 && top != 1040006 && top != 1040010) {
+                pass = false;
+            } else if (bottom != 1060002 && bottom != 1060006) {
+                pass = false;
+            }
+        } else if (gender == 1) {
+            if (face != 21700 && face != 21201 && face != 21002) {
+                pass = false;
+            } else if (hair != 31002 && hair != 31047 && hair != 31057) {
+                pass = false;
+            } else if (top != 1041002 && top != 1041006 && top != 1041010 && top != 1041011) {
+                pass = false;
+            } else if (bottom != 1061002 && bottom != 1061008) {
+                pass = false;
+            }
+        }
+        if (shoes != 1072001 && shoes != 1072005 && shoes != 1072037 && shoes != 1072038) {
+            pass = false;
+        } else if (weapon != 1302000 && weapon != 1312004 && weapon != 1322005) {
+            pass = false;
+        }
+        return pass;
+    }
+}
