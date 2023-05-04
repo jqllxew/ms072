@@ -12,5 +12,11 @@
 ## WZ
 使用HaRepacker把客户端的wz文件导出为服务端xml放入wz目录
 
+## run
+```bash
+.\mvnw clean package
+java -jar .\target\ms072-1.0-SNAPSHOT.jar
+```
+
 ## 游戏截图
 ![](./docs/game.png)
