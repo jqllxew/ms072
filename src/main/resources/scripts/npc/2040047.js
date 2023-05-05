@@ -6,7 +6,7 @@
 
 function start() {
     if (cm.getMapId() != 922010000) {
-	cm.sendYesNo("ÄãÕæµÄÒªÀë¿ª#r×é¶ÓÈÎÎñÁË#k£¿");
+	cm.sendYesNo("ä½ çœŸçš„è¦ç¦»å¼€#rç»„é˜Ÿä»»åŠ¡äº†#kï¼Ÿ");
     } else {
 	if (cm.haveItem(4001022)) {
 	    cm.removeAll(4001022);

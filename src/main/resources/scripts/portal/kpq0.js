@@ -5,7 +5,7 @@ function enter(pi) {
         pi.getPlayer().changeMap(target, target.getPortal("st00"));
         return true;
     } else {
-        pi.playerMessage("现在还不能进入下一阶段.");
+        pi.playerMessage("鐜板湪杩樹笉鑳借繘鍏ヤ笅涓�闃舵.");
         return false;
     }
 }

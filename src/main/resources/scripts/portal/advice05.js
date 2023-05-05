@@ -1,3 +1,3 @@
 function enter(pi) {
-    pi.showInstruction("°´ #e#b[Q]#k#n ´ò¿ªÈÎÎñ´°¿Ú.", 250, 5);
+    pi.showInstruction("æŒ‰ #e#b[Q]#k#n æ‰“å¼€ä»»åŠ¡çª—å£.", 250, 5);
 }

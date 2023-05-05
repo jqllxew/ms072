@@ -1,20 +1,20 @@
 function action(mode, type, selection) {
-    if (cm.getPlayer().getParty() != null) { //ÅĞ¶ÏÊÇ·ñÓĞ×é¶Ó
+    if (cm.getPlayer().getParty() != null) { //åˆ¤æ–­æ˜¯å¦æœ‰ç»„é˜Ÿ
         if (isLeader() == true) {
             cm.removeAll(4001022);
             cm.removeAll(4001023);
             cm.getPlayer().endPartyQuest(1202); //might be a bad implentation.. incase they dc or something
-            //cm.¸øÓè×é¶ÓÎïÆ·¶Ó³¤Ë«±¶(4170005, 1, false); //Íæ¾ß¸±±¾µ°
+            //cm.ç»™äºˆç»„é˜Ÿç‰©å“é˜Ÿé•¿åŒå€(4170005, 1, false); //ç©å…·å‰¯æœ¬è›‹
             cm.gainExp(+2000);
             cm.warpParty(922010000);
-            cm.À®°È(3, "[" + cm.getPlayer().getName() + "]³É¹¦Í¨¹Ø¡¾×é¶ÓÈÎÎñ - Íæ¾ß³Ç×é¶Ó¡¿»ñµÃ½±Àø£¡");
+            cm.å–‡å­(3, "[" + cm.getPlayer().getName() + "]æˆåŠŸé€šå…³ã€ç»„é˜Ÿä»»åŠ¡ - ç©å…·åŸç»„é˜Ÿã€‘è·å¾—å¥–åŠ±ï¼");
             cm.dispose();
         } else {
-            cm.sendOk("¡°¶Ó³¤¡±±ØĞëÔÚÕâÀï,ÇëÈÃËûºÍÎÒËµ»°¡£");
+            cm.sendOk("â€œé˜Ÿé•¿â€å¿…é¡»åœ¨è¿™é‡Œ,è¯·è®©ä»–å’Œæˆ‘è¯´è¯ã€‚");
             cm.dispose();
         }
     } else {
-        cm.sendOk("ÄãÃ»ÓĞ¶ÓÎé£¡");
+        cm.sendOk("ä½ æ²¡æœ‰é˜Ÿä¼ï¼");
         cm.dispose();
     }
 }

@@ -1,3 +1,3 @@
 function enter(pi) {
-    pi.showInstruction("╟╢#e#b[║Ш],[║З]#k#n╪Э╬м©иртрф╤╞", 250, 5);
+    pi.showInstruction("Ф▄┴#e#b[Б├░],[Б├▓]#k#nИ■╝Е╟╠Е▐╞Д╩╔Г╖╩Е┼╗", 250, 5);
 }
