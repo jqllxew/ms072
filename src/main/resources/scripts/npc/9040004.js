@@ -1,19 +1,19 @@
 function start() {
-    cm.sendSimple("#L0##r╪рвЕеепп╟Я\r\n\r\n#L1##g╣х╪╤еепп╟Я\r\n\r\n#L2##b╫П╠реепп╟Я#l\r\n\r\n#L3##bхкфЬеепп╟Я#l");
+    cm.sendSimple("#L0##rЕ╝╤Ф≈▐Ф▌▓Х║▄Ф╕°\r\n\r\n#L1##gГ╜┴Г╨╖Ф▌▓Х║▄Ф╕°\r\n\r\n#L2##bИ┤▒Е╦│Ф▌▓Х║▄Ф╕°#l\r\n\r\n#L3##bД╨╨Ф╟■Ф▌▓Х║▄Ф╕°#l");
 }
 
 function action(mode, type, selection) {
     if (selection == 0) {
-        cm.╪рвЕеепп╟Я();
+        cm.Е╝╤Ф≈▐Ф▌▓Х║▄Ф╕°();
         cm.dispose();
     } else if (selection == 1) {
-        cm.╣х╪╤еепп╟Я();
+        cm.Г╜┴Г╨╖Ф▌▓Х║▄Ф╕°();
         cm.dispose();
     } else if (selection == 2) {
-        cm.╫П╠реепп╟Я();
+        cm.И┤▒Е╦│Ф▌▓Х║▄Ф╕°();
         cm.dispose();
     } else if (selection == 3) {
-        cm.хкфЬеепп╟Я();
+        cm.Д╨╨Ф╟■Ф▌▓Х║▄Ф╕°();
         cm.dispose();
     }
     cm.dispose();
