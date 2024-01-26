@@ -20,24 +20,15 @@
  */
 package org.example.ms072.scripting;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import org.example.ms072.client.MapleClient;
+import org.example.ms072.server.MaplePortal;
+import org.example.ms072.tools.FileoutputUtil;
+
+import javax.script.*;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.script.Compilable;
-import javax.script.CompiledScript;
-import javax.script.Invocable;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineFactory;
-import javax.script.ScriptEngineManager;
-
-import  org.example.ms072.client.MapleClient;
-import java.io.*;
-import javax.script.ScriptException;
-import  org.example.ms072.server.MaplePortal;
-import  org.example.ms072.tools.FileoutputUtil;
+import java.util.Objects;
 
 public class PortalScriptManager {
 
@@ -53,8 +44,8 @@ public class PortalScriptManager {
         if (scripts.containsKey(scriptName)) {
             return scripts.get(scriptName);
         }
-
-        final File scriptFile = new File("scripts/portal/" + scriptName + ".js");
+        ClassLoader classLoader = getClass().getClassLoader();
+        final File scriptFile = new File(Objects.requireNonNull(classLoader.getResource("scripts/portal/" + scriptName + ".js")).getFile());
         if (!scriptFile.exists()) {
             return null;
         }

@@ -1,11 +1,12 @@
 package org.example.ms072.constants;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Objects;
+import java.util.Properties;
 
 public class SetConstants {
 
@@ -20,16 +21,17 @@ public class SetConstants {
         return instance;
     }
     private Properties itempb_cfg;
-    private String itempb_id[];
-    private String itemjy_id[];
-    private String itemgy_id[];
-    private String mappb_id[];
-    private String skill_id[];
+    private String[] itempb_id;
+    private String[] itemjy_id;
+    private String[] itemgy_id;
+    private String[] mappb_id;
+    private String[] skill_id;
 
     public SetConstants() {
         itempb_cfg = new Properties();
         try {
-            InputStreamReader is = new FileReader("ms072server.properties");
+            InputStreamReader is = new InputStreamReader(
+                    Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream("ms072server.properties")));
             itempb_cfg.load(is);
             is.close();
             itempb_id = itempb_cfg.getProperty("cashban").split(",");
