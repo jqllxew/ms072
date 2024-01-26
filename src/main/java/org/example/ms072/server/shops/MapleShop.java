@@ -10,15 +10,6 @@ import org.example.ms072.constants.GameConstants;
 import org.example.ms072.custom.MoonlightRevamp;
 import org.example.ms072.custom.MoonlightRevamp.MoonlightShop;
 import org.example.ms072.database.DatabaseConnection;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
 import org.example.ms072.server.MapleInventoryManipulator;
 import org.example.ms072.server.MapleItemInformationProvider;
 import org.example.ms072.server.life.MapleLifeFactory;
@@ -27,6 +18,12 @@ import org.example.ms072.tools.FileoutputUtil;
 import org.example.ms072.tools.Pair;
 import org.example.ms072.tools.packet.CField;
 import org.example.ms072.tools.packet.CWvsContext;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 
 public class MapleShop {
 
@@ -45,12 +42,12 @@ public class MapleShop {
 //        rechargeableItems.remove(2070016);
 //        rechargeableItems.remove(2070017);
 //        rechargeableItems.remove(2070018);
-
-//        for (int i = 2330000; i <= 2330005; i++) {
-//            rechargeableItems.add(i);
-//        }
-//        rechargeableItems.add(2331000);//Blaze Capsule
-//        rechargeableItems.add(2332000);//Glaze Capsule
+//
+        for (int i = 2330000; i <= 2330005; i++) {
+            rechargeableItems.add(i);
+        }
+        rechargeableItems.add(2331000);//Blaze Capsule
+        rechargeableItems.add(2332000);//Glaze Capsule
     }
 
     public MapleShop(int id, int npcId) {

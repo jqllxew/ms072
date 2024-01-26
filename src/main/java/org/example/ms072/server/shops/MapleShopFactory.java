@@ -37,11 +37,12 @@ public class MapleShopFactory {
         if (ret != null) {
             this.shops.put(ret.getId(), ret);
             this.npcShops.put(ret.getNpcId(), ret);
-        } else if (isShopId) {
-            this.shops.put(id, null);
-        } else {
-            this.npcShops.put(id, null);
         }
+//        else if (isShopId) {
+//            this.shops.put(id, null);
+//        } else {
+//            this.npcShops.put(id, null);
+//        }
         return ret;
     }
 }
