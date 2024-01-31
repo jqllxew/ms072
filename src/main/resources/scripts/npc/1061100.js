@@ -40,14 +40,14 @@ function action(mode, type, selection) {
     if (status == 3) {
 	if (tempvar == 0) {
 	    if (cm.getMeso() >= regcost) {
-		cm.warp(105000011);
+		cm.warp(105040401);
 		cm.gainMeso(-regcost);
 	    } else {
 		cm.sendNext("I'm sorry. It looks like you don't have enough mesos. It will cost you at least " + regcost + "mesos to stay at our hotel.");
 	    }
 	} if (tempvar == 1) {
 	    if (cm.getMeso() >= vipcost) {
-		cm.warp(105000012);
+		cm.warp(105040402);
 		cm.gainMeso(-vipcost);
 	    } else {
 		cm.sendNext("I'm sorry. It looks like you don't have enough mesos. It will cost you at least " + regcost + "mesos to stay at our hotel.");

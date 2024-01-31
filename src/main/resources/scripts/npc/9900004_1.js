@@ -26,6 +26,9 @@ const EFFECT_MAP = {
     'star_5': 10,
 }
 const OWNER_LIST = ["","★","★★","★★★","★★★★","★★★★★"]
+
+const MapleInventoryManipulator = Java.type('org.example.ms072.server.MapleInventoryManipulator');
+const MapleInventoryType = Java.type('org.example.ms072.client.inventory.MapleInventoryType');
 let status = -1
 
 function start(){
@@ -66,7 +69,7 @@ function action(mode, type, selection){
 }
 
 function starUp(star= 0){
-    let item = cm.getChar().getInventory(Packages.client.inventory.MapleInventoryType.EQUIP).getItem(1)
+    let item = cm.getChar().getInventory(MapleInventoryType.EQUIP).getItem(1)
     if (!item || item.getItemId() !== 1112908){
         cm.sendOk("#v1112908#该道具不在您背包的第一格!..");
         status = -1;
@@ -87,8 +90,8 @@ function starUp(star= 0){
         _item.setWatk(_item.getWatk() * 1 + eff);
         _item.setHp(_item.getHp() * 1 + eff);
         _item.setMp(_item.getMp() * 1 + eff);
-        Packages.server.MapleInventoryManipulator.removeFromSlot(cm.getC(), Packages.client.inventory.MapleInventoryType.EQUIP, 1, 1, true);
-        Packages.server.MapleInventoryManipulator.addFromDrop(cm.getC(), _item, false);
+        MapleInventoryManipulator.removeFromSlot(cm.getC(), MapleInventoryType.EQUIP, 1, 1, true);
+        MapleInventoryManipulator.addFromDrop(cm.getC(), _item, false);
         cm.喇叭(3,"『升星公告』：恭喜【" + cm.getChar().getName() + "】的极光戒指升为【" + owner + "】 战斗力大幅提升！");
         cm.sendOk("#e#b成功的将#v1112908#提升至#r " + owner);
     }

@@ -82,9 +82,9 @@ function _invasion(map, pos){
     for(let i =0; i< 5;i++){
         map.spawnMonsterOnGroundBelow(em.getMonster(2300100), pos);
     }
-    // for(let i =0; i< 2;i++){
-    //     map.spawnMonsterOnGroundBelow(em.getMonster(8150000), pos);
-    // }
+    for(let i =0; i< 2;i++){
+        map.spawnMonsterOnGroundBelow(em.getMonster(8150000), pos);
+    }
 }
 
 function _setPortal(){

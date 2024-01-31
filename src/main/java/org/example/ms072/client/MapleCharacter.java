@@ -4329,8 +4329,15 @@ public class MapleCharacter extends AnimatedMapleMapObject implements Serializab
         eq.setPotential3(60003);
     }
 
-    public final MapleInventory getInventory(MapleInventoryType type) {
-        return inventory[type.ordinal()];
+    public final MapleInventory getInventory(Object type) {
+        if (type instanceof MapleInventoryType _type){
+            return inventory[_type.ordinal()];
+        } else if (type instanceof String) {
+            MapleInventoryType _type = MapleInventoryType.valueOf((String) type);
+            return inventory[_type.ordinal()];
+        }
+        System.out.println(type.toString());
+        throw new RuntimeException("未知枚举类型: "+ type.getClass().getName());
     }
 
     public final MapleInventory[] getInventorys() {
